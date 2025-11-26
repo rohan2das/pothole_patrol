@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Sample Road Route</name>
+    <description>Sample KML file for testing road surface anomaly detection</name>
+    <Placemark>
+      <name>Road Path</name>
+      <description>Sample waypoints along a road</description>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>
+          78.9629,20.5937,15
+          78.9635,20.5940,15
+          78.9641,20.5943,15
+          78.9647,20.5946,15
+          78.9653,20.5949,15
+          78.9659,20.5952,15
+          78.9665,20.5955,15
+          78.9671,20.5958,15
+        </coordinates>
+      </LineString>
+    </Placemark>
+  </Document>
+</kml>
+

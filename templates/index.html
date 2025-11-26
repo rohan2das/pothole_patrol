@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Surface Anomaly Detection - GCS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 0;
+            height: calc(100vh - 200px);
+        }
+        
+        .sidebar {
+            background: #f8f9fa;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #e0e0e0;
+        }
+        
+        .map-container {
+            position: relative;
+            height: 100%;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            background: #f0f0ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #e8e8ff;
+            border-color: #764ba2;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .mission-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .mission-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .mission-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .mission-item.active {
+            border-left-color: #764ba2;
+            background: #f0f0ff;
+        }
+        
+        .mission-item h3 {
+            font-size: 1em;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .mission-item p {
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        
+        .status-pending { background: #ffc107; color: #000; }
+        .status-running { background: #28a745; color: white; }
+        .status-completed { background: #17a2b8; color: white; }
+        .status-stopped { background: #dc3545; color: white; }
+        
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        
+        .legend h3 {
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            min-width: 200px;
+        }
+        
+        .info-panel h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .info-item {
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+        
+        .info-item strong {
+            color: #667eea;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 10000;
+            display: none;
+        }
+        
+        .toast.show {
+            display: block;
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛣️ Road Surface Anomaly Detection</h1>
+            <p>AI-Driven Cyber-Physical System for Pothole Detection</p>
+        </div>
+        
+        <div class="content">
+            <div class="sidebar">
+                <div class="section">
+                    <h2>📤 Upload KML File</h2>
+                    <div class="upload-area" id="uploadArea">
+                        <p style="font-size: 1.2em; margin-bottom: 10px;">📁</p>
+                        <p>Drag & drop KML file here</p>
+                        <p style="font-size: 0.85em; color: #666; margin-top: 5px;">or click to browse</p>
+                        <input type="file" id="fileInput" class="file-input" accept=".kml,.kmz">
+                    </div>
+                    <button class="btn" id="uploadBtn" disabled>Upload</button>
+                    <button class="btn" id="processBtn" disabled style="margin-top: 10px;">Process</button>
+                </div>
+                
+                <div class="section">
+                    <h2>🎯 Missions</h2>
+                    <div class="mission-list" id="missionList">
+                        <div class="loading">No missions yet</div>
+                    </div>
+                    <button class="btn" id="startBtn" disabled>Start Mission</button>
+                    <button class="btn btn-danger" id="stopBtn" disabled>Stop Mission</button>
+                </div>
+            </div>
+            
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="info-panel" id="infoPanel" style="display: none;">
+                    <h3>Mission Info</h3>
+                    <div class="info-item"><strong>Waypoints:</strong> <span id="waypointCount">0</span></div>
+                    <div class="info-item"><strong>Anomalies:</strong> <span id="anomalyCount">0</span></div>
+                    <div class="info-item"><strong>Status:</strong> <span id="missionStatus">-</span></div>
+                </div>
+                <div class="legend">
+                    <h3>Legend</h3>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #28a745;"></div>
+                        <span>Good Road</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffc107;"></div>
+                        <span>Minor Pothole</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #dc3545;"></div>
+                        <span>Major Pothole</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #667eea;"></div>
+                        <span>Waypoint</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+    
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([20.5937, 78.9629], 6); // Center on India
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        let currentMissionId = null;
+        let waypointLayer = null;
+        let anomalyLayer = null;
+        let waypointMarkers = [];
+        let anomalyMarkers = [];
+        
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const processBtn = document.getElementById('processBtn');
+        let uploadedFileId = null;
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect();
+            }
+        });
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        function handleFileSelect() {
+            if (fileInput.files.length > 0) {
+                uploadBtn.disabled = false;
+                processBtn.disabled = true;
+                uploadedFileId = null;
+                uploadArea.innerHTML = `
+                    <p style="font-size: 1.2em; margin-bottom: 10px;">📁</p>
+                    <p>${fileInput.files[0].name}</p>
+                    <p style="font-size: 0.85em; color: #666; margin-top: 5px;">Ready to upload</p>
+                `;
+            }
+        }
+        
+        uploadBtn.addEventListener('click', async () => {
+            if (!fileInput.files.length) return;
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+            
+            try {
+                const response = await fetch('/api/upload-kml', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast('File uploaded successfully! Click Process to extract waypoints.');
+                    uploadedFileId = data.file_id;
+                    processBtn.disabled = false;
+                    uploadArea.innerHTML = `
+                        <p style="font-size: 1.2em; margin-bottom: 10px;">✓</p>
+                        <p>${data.filename}</p>
+                        <p style="font-size: 0.85em; color: #28a745; margin-top: 5px;">Uploaded! Ready to process</p>
+                    `;
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                    uploadBtn.disabled = false;
+                }
+            } catch (error) {
+                showToast('Error uploading file: ' + error.message, 'error');
+                uploadBtn.disabled = false;
+            } finally {
+                uploadBtn.textContent = 'Upload';
+            }
+        });
+        
+        processBtn.addEventListener('click', async () => {
+            if (!uploadedFileId) {
+                showToast('Please upload a file first', 'error');
+                return;
+            }
+            
+            processBtn.disabled = true;
+            processBtn.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch('/api/process-kml', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ file_id: uploadedFileId })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast('KML file processed successfully!');
+                    currentMissionId = data.mission_id;
+                    loadMissions();
+                    loadMissionData(data.mission_id);
+                    uploadArea.innerHTML = `
+                        <p style="font-size: 1.2em; margin-bottom: 10px;">📁</p>
+                        <p>Drag & drop KML file here</p>
+                        <p style="font-size: 0.85em; color: #666; margin-top: 5px;">or click to browse</p>
+                    `;
+                    fileInput.value = '';
+                    uploadedFileId = null;
+                    uploadBtn.disabled = true;
+                    processBtn.disabled = true;
+                } else {
+                    showToast('Error: ' + data.error, 'error');
+                    processBtn.disabled = false;
+                }
+            } catch (error) {
+                showToast('Error processing file: ' + error.message, 'error');
+                processBtn.disabled = false;
+            } finally {
+                processBtn.textContent = 'Process';
+            }
+        });
+        
+        // Mission management
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        
+        startBtn.addEventListener('click', async () => {
+            if (!currentMissionId) return;
+            
+            try {
+                const response = await fetch(`/api/mission/${currentMissionId}/start`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('Mission started!');
+                    loadMissions();
+                }
+            } catch (error) {
+                showToast('Error starting mission: ' + error.message, 'error');
+            }
+        });
+        
+        stopBtn.addEventListener('click', async () => {
+            if (!currentMissionId) return;
+            
+            try {
+                const response = await fetch(`/api/mission/${currentMissionId}/stop`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('Mission stopped!');
+                    loadMissions();
+                }
+            } catch (error) {
+                showToast('Error stopping mission: ' + error.message, 'error');
+            }
+        });
+        
+        // Load missions
+        async function loadMissions() {
+            try {
+                const response = await fetch('/api/missions');
+                const data = await response.json();
+                
+                const missionList = document.getElementById('missionList');
+                
+                if (data.missions.length === 0) {
+                    missionList.innerHTML = '<div class="loading">No missions yet</div>';
+                    return;
+                }
+                
+                missionList.innerHTML = data.missions.map(mission => `
+                    <div class="mission-item ${mission.mission_id === currentMissionId ? 'active' : ''}" 
+                         onclick="selectMission('${mission.mission_id}')">
+                        <h3>Mission ${mission.mission_id.substring(0, 8)}</h3>
+                        <p>Waypoints: ${mission.waypoint_count}</p>
+                        <p>Anomalies: ${mission.anomaly_count}</p>
+                        <span class="status-badge status-${mission.status}">${mission.status}</span>
+                    </div>
+                `).join('');
+                
+                // Update button states
+                const currentMission = data.missions.find(m => m.mission_id === currentMissionId);
+                if (currentMission) {
+                    startBtn.disabled = currentMission.status === 'running' || currentMission.status === 'completed';
+                    stopBtn.disabled = currentMission.status !== 'running';
+                }
+            } catch (error) {
+                console.error('Error loading missions:', error);
+            }
+        }
+        
+        async function selectMission(missionId) {
+            currentMissionId = missionId;
+            loadMissions();
+            loadMissionData(missionId);
+        }
+        
+        async function loadMissionData(missionId) {
+            try {
+                const response = await fetch(`/api/mission/${missionId}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    showToast('Error loading mission data', 'error');
+                    return;
+                }
+                
+                // Update info panel
+                document.getElementById('waypointCount').textContent = data.waypoints.length;
+                document.getElementById('anomalyCount').textContent = data.anomalies.length;
+                document.getElementById('missionStatus').textContent = data.status;
+                document.getElementById('infoPanel').style.display = 'block';
+                
+                // Clear existing markers
+                waypointMarkers.forEach(m => map.removeLayer(m));
+                anomalyMarkers.forEach(m => map.removeLayer(m));
+                waypointMarkers = [];
+                anomalyMarkers = [];
+                
+                // Draw waypoints
+                if (data.waypoints.length > 0) {
+                    const bounds = [];
+                    data.waypoints.forEach((wp, idx) => {
+                        const marker = L.marker([wp[0], wp[1]], {
+                            icon: L.divIcon({
+                                className: 'waypoint-marker',
+                                html: `<div style="background: #667eea; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">${idx + 1}</div>`,
+                                iconSize: [25, 25]
+                            })
+                        }).addTo(map);
+                        marker.bindPopup(`Waypoint ${idx + 1}<br>Lat: ${wp[0].toFixed(6)}<br>Lon: ${wp[1].toFixed(6)}`);
+                        waypointMarkers.push(marker);
+                        bounds.push([wp[0], wp[1]]);
+                    });
+                    
+                    // Draw waypoint path
+                    if (data.waypoints.length > 1) {
+                        const path = data.waypoints.map(wp => [wp[0], wp[1]]);
+                        L.polyline(path, {color: '#667eea', weight: 3, opacity: 0.7}).addTo(map);
+                    }
+                    
+                    if (bounds.length > 0) {
+                        map.fitBounds(bounds, {padding: [50, 50]});
+                    }
+                }
+                
+                // Draw anomalies
+                data.anomalies.forEach(anomaly => {
+                    if (anomaly.latitude && anomaly.longitude) {
+                        const severity = anomaly.severity || 'minor';
+                        const color = severity === 'major' ? '#dc3545' : severity === 'minor' ? '#ffc107' : '#28a745';
+                        
+                        const marker = L.circleMarker([anomaly.latitude, anomaly.longitude], {
+                            radius: 8,
+                            fillColor: color,
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map);
+                        
+                        marker.bindPopup(`
+                            <strong>Anomaly Detected</strong><br>
+                            Type: ${anomaly.object || 'pothole'}<br>
+                            Severity: ${severity}<br>
+                            Confidence: ${(anomaly.confidence || 0).toFixed(2)}<br>
+                            Time: ${anomaly.timestamp || 'N/A'}
+                        `);
+                        anomalyMarkers.push(marker);
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error loading mission data:', error);
+                showToast('Error loading mission data', 'error');
+            }
+        }
+        
+        // Auto-refresh anomalies
+        setInterval(async () => {
+            if (currentMissionId) {
+                try {
+                    const response = await fetch(`/api/anomalies/${currentMissionId}`);
+                    const data = await response.json();
+                    
+                    // Only update if count changed
+                    const currentCount = document.getElementById('anomalyCount').textContent;
+                    if (data.anomalies.length != currentCount) {
+                        loadMissionData(currentMissionId);
+                    }
+                } catch (error) {
+                    console.error('Error refreshing anomalies:', error);
+                }
+            }
+        }, 5000); // Refresh every 5 seconds
+        
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.background = type === 'error' ? '#dc3545' : '#28a745';
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Initial load
+        loadMissions();
+    </script>
+</body>
+</html>
+

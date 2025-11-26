@@ -1,0 +1,58 @@
+[
+    {
+        "timestamp": "2025-01-15T10:00:00",
+        "frame_id": 1,
+        "object": "pothole",
+        "severity": "minor",
+        "confidence": 0.75,
+        "bbox_area": 6500,
+        "latitude": 22.49599625133448,
+        "longitude": 88.3707041082982,
+        "altitude_m": 15.0
+    },
+    {
+        "timestamp": "2025-01-15T10:00:15",
+        "frame_id": 45,
+        "object": "pothole",
+        "severity": "major",
+        "confidence": 0.88,
+        "bbox_area": 18000,
+        "latitude": 22.496257268042502,
+        "longitude": 88.37064463073891,
+        "altitude_m": 15.0
+    },
+    {
+        "timestamp": "2025-01-15T10:00:30",
+        "frame_id": 120,
+        "object": "pothole",
+        "severity": "minor",
+        "confidence": 0.72,
+        "bbox_area": 5500,
+        "latitude": 22.496755427811546,
+        "longitude": 88.3705667136798,
+        "altitude_m": 15.0
+    },
+    {
+        "timestamp": "2025-01-15T10:00:45",
+        "frame_id": 200,
+        "object": "pothole",
+        "severity": "major",
+        "confidence": 0.91,
+        "bbox_area": 22000,
+        "latitude": 22.49726892787002,
+        "longitude": 88.3704603226862,
+        "altitude_m": 15.0
+    },
+    {
+        "timestamp": "2025-01-15T10:01:00",
+        "frame_id": 280,
+        "object": "pothole",
+        "severity": "minor",
+        "confidence": 0.68,
+        "bbox_area": 4800,
+        "latitude": 22.497420409082977,
+        "longitude": 88.37042685779483,
+        "altitude_m": 15.0
+    }
+]
+
