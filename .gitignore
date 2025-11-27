@@ -44,11 +44,14 @@ run_*/
 .DS_Store
 Thumbs.db
 
-# Models (can be large)
-*.pt
-*.onnx
-*.tflite
-*.pb
+# Models (can be large) - Uncomment if not using Git LFS
+# *.pt
+# *.onnx
+# *.tflite
+# *.pb
+
+# Keep the trained model in repository
+!pothole_patrol.pt
 
 # Logs
 *.log

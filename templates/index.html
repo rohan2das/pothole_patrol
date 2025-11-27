@@ -34,6 +34,7 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
         
         .header h1 {
@@ -44,6 +45,37 @@
         .header p {
             opacity: 0.9;
             font-size: 1.1em;
+        }
+        
+        .nav-buttons {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .nav-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 0.9em;
+        }
+        
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .nav-btn.active {
+            background: white;
+            color: #667eea;
         }
         
         .content {
@@ -279,6 +311,10 @@
 <body>
     <div class="container">
         <div class="header">
+            <div class="nav-buttons">
+                <a href="/" class="nav-btn active">Mission Planning</a>
+                <a href="/road-map" class="nav-btn">Road Conditions</a>
+            </div>
             <h1>🛣️ Road Surface Anomaly Detection</h1>
             <p>AI-Driven Cyber-Physical System for Pothole Detection</p>
         </div>
@@ -304,6 +340,14 @@
                     </div>
                     <button class="btn" id="startBtn" disabled>Start Mission</button>
                     <button class="btn btn-danger" id="stopBtn" disabled>Stop Mission</button>
+                </div>
+                
+                <div class="section">
+                    <h2>🛣️ Road Conditions</h2>
+                    <button class="btn" id="toggleRoadConditions" onclick="toggleRoadConditions()">Show Road Conditions</button>
+                    <div style="margin-top: 10px; font-size: 0.85em; color: #666;">
+                        <p id="roadConditionsStatus">Road conditions: Hidden</p>
+                    </div>
                 </div>
             </div>
             
@@ -355,6 +399,8 @@
         let anomalyLayer = null;
         let waypointMarkers = [];
         let anomalyMarkers = [];
+        let roadConditionMarkers = [];
+        let roadConditionsVisible = false;
         
         // File upload handling
         const uploadArea = document.getElementById('uploadArea');
@@ -666,6 +712,69 @@
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
+        }
+        
+        // Road conditions toggle
+        function toggleRoadConditions() {
+            roadConditionsVisible = !roadConditionsVisible;
+            const btn = document.getElementById('toggleRoadConditions');
+            const status = document.getElementById('roadConditionsStatus');
+            
+            if (roadConditionsVisible) {
+                btn.textContent = 'Hide Road Conditions';
+                status.textContent = 'Road conditions: Visible';
+                loadRoadConditions();
+            } else {
+                btn.textContent = 'Show Road Conditions';
+                status.textContent = 'Road conditions: Hidden';
+                // Clear road condition markers
+                roadConditionMarkers.forEach(m => map.removeLayer(m));
+                roadConditionMarkers = [];
+            }
+        }
+        
+        function loadRoadConditions() {
+            if (!roadConditionsVisible) return;
+            
+            fetch('/api/road-conditions')
+                .then(response => response.json())
+                .then(data => {
+                    // Clear existing road condition markers
+                    roadConditionMarkers.forEach(m => map.removeLayer(m));
+                    roadConditionMarkers = [];
+                    
+                    const segments = data.segments || [];
+                    
+                    // Draw road condition segments
+                    segments.forEach(segment => {
+                        const marker = L.circleMarker([segment.lat, segment.lon], {
+                            radius: 10,
+                            fillColor: segment.color,
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 0.9,
+                            fillOpacity: 0.7
+                        }).addTo(map);
+                        
+                        const popupContent = `
+                            <div style="min-width: 180px;">
+                                <h4 style="margin: 0 0 8px 0; color: ${segment.color};">
+                                    ${segment.condition.toUpperCase()} Road
+                                </h4>
+                                <p style="margin: 3px 0; font-size: 0.9em;"><strong>Potholes:</strong> ${segment.total_potholes}</p>
+                                <p style="margin: 3px 0; font-size: 0.85em; color: #666;">
+                                    Major: ${segment.major_potholes} | Minor: ${segment.minor_potholes}
+                                </p>
+                            </div>
+                        `;
+                        
+                        marker.bindPopup(popupContent);
+                        roadConditionMarkers.push(marker);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading road conditions:', error);
+                });
         }
         
         // Initial load

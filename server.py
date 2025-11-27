@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from werkzeug.utils import secure_filename
+import math
+from collections import defaultdict
 
 app = Flask(__name__)
 CORS(app)
@@ -384,6 +386,143 @@ def get_anomalies(mission_id):
         return jsonify({'anomalies': []})
     
     return jsonify({'anomalies': anomaly_data[mission_id]})
+
+def get_distance_metres(lat1, lon1, lat2, lon2):
+    """Calculate distance between two GPS coordinates in meters."""
+    dlat = lat2 - lat1
+    dlong = lon2 - lon1
+    a = math.sin(dlat*math.pi/360)**2 + math.cos(lat1*math.pi/180) * math.cos(lat2*math.pi/180) * math.sin(dlong*math.pi/360)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return 6371000 * c
+
+def aggregate_road_conditions():
+    """
+    Aggregate all anomalies from all missions and create road segments with condition ratings.
+    Returns road segments with color coding based on pothole density and severity.
+    """
+    all_anomalies = []
+    
+    # Collect all anomalies from all missions
+    for mission_id, anomalies in anomaly_data.items():
+        for anomaly in anomalies:
+            if anomaly.get('latitude') and anomaly.get('longitude'):
+                all_anomalies.append({
+                    'lat': anomaly['latitude'],
+                    'lon': anomaly['longitude'],
+                    'severity': anomaly.get('severity', 'minor'),
+                    'confidence': anomaly.get('confidence', 0.5),
+                    'mission_id': mission_id
+                })
+    
+    if not all_anomalies:
+        return []
+    
+    # Group anomalies by proximity (create road segments)
+    # Segment size: ~100 meters
+    SEGMENT_SIZE = 100  # meters
+    segments = defaultdict(lambda: {
+        'anomalies': [],
+        'total_count': 0,
+        'major_count': 0,
+        'minor_count': 0,
+        'avg_lat': 0,
+        'avg_lon': 0
+    })
+    
+    # Simple clustering: group nearby anomalies
+    for anomaly in all_anomalies:
+        # Find nearest segment or create new one
+        segment_key = None
+        min_dist = float('inf')
+        
+        for key, segment in segments.items():
+            dist = get_distance_metres(
+                segment['avg_lat'], segment['avg_lon'],
+                anomaly['lat'], anomaly['lon']
+            )
+            if dist < SEGMENT_SIZE and dist < min_dist:
+                min_dist = dist
+                segment_key = key
+        
+        if segment_key is None:
+            # Create new segment
+            segment_key = f"{anomaly['lat']:.6f},{anomaly['lon']:.6f}"
+            segments[segment_key]['avg_lat'] = anomaly['lat']
+            segments[segment_key]['avg_lon'] = anomaly['lon']
+        
+        # Add to segment
+        segment = segments[segment_key]
+        segment['anomalies'].append(anomaly)
+        segment['total_count'] += 1
+        if anomaly['severity'] == 'major':
+            segment['major_count'] += 1
+        else:
+            segment['minor_count'] += 1
+        
+        # Update average position
+        n = segment['total_count']
+        segment['avg_lat'] = (segment['avg_lat'] * (n-1) + anomaly['lat']) / n
+        segment['avg_lon'] = (segment['avg_lon'] * (n-1) + anomaly['lon']) / n
+    
+    # Convert to road condition segments with color coding
+    road_segments = []
+    for key, segment in segments.items():
+        # Determine condition based on density and severity
+        total = segment['total_count']
+        major = segment['major_count']
+        
+        # Color coding logic:
+        # Green: no potholes or very few minor ones
+        # Yellow: some minor potholes or 1-2 major ones
+        # Red: many potholes or multiple major ones
+        if total == 0:
+            condition = 'good'
+            color = '#28a745'  # Green
+        elif major >= 2 or total >= 5:
+            condition = 'poor'
+            color = '#dc3545'  # Red
+        elif major >= 1 or total >= 3:
+            condition = 'moderate'
+            color = '#ffc107'  # Yellow
+        else:
+            condition = 'good'
+            color = '#28a745'  # Green
+        
+        road_segments.append({
+            'lat': segment['avg_lat'],
+            'lon': segment['avg_lon'],
+            'condition': condition,
+            'color': color,
+            'total_potholes': total,
+            'major_potholes': major,
+            'minor_potholes': segment['minor_count']
+        })
+    
+    return road_segments
+
+@app.route('/road-map')
+def road_map():
+    """Serve road conditions map view."""
+    return render_template('road_map.html')
+
+@app.route('/api/road-conditions')
+def get_road_conditions():
+    """Get aggregated road conditions for all missions."""
+    segments = aggregate_road_conditions()
+    
+    # Also get all individual anomalies for detailed view
+    all_anomalies = []
+    for mission_id, anomalies in anomaly_data.items():
+        for anomaly in anomalies:
+            if anomaly.get('latitude') and anomaly.get('longitude'):
+                all_anomalies.append(anomaly)
+    
+    return jsonify({
+        'segments': segments,
+        'anomalies': all_anomalies,
+        'total_segments': len(segments),
+        'total_anomalies': len(all_anomalies)
+    })
 
 if __name__ == '__main__':
     print("Starting GCS Server...")

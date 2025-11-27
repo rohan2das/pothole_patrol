@@ -29,9 +29,10 @@ except ImportError:
 
 # ===================== CONFIGURATION =====================
 # YOLO Model configuration
-MODEL_PATH = "yolov8n.pt"  # Can be yolov8n.pt, yolov8s.pt, yolov8m.pt, etc.
-# For pothole detection, you may need a custom trained model
-# MODEL_PATH = "pothole_detection_model.pt"  # Custom trained model
+# Using custom-trained YOLO11n model for pothole detection
+MODEL_PATH = "pothole_patrol.pt"  # Custom trained YOLO11n model
+# Fallback to pre-trained model if custom model not available
+# MODEL_PATH = "yolo11n.pt"  # Pre-trained YOLO11n (will auto-download)
 
 CAMERA_INDEX = 0  # Change based on your camera
 FRAME_WIDTH = 1280
